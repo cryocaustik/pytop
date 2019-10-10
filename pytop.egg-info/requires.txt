@@ -1,0 +1,4 @@
+apscheduler
+django
+djangorestframework
+psutil

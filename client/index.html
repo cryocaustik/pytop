@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>PyTop</title>
+    <!-- bulma:superhero -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/bulmaswatch/0.7.2/superhero/bulmaswatch.min.css"
+    />
+    <!-- ./bulma:superhero -->
+    <!-- vuejs -->
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <!-- ./vuejs -->
+    <!-- moment.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment-with-locales.js"></script>
+    <!-- ./moment.js -->
+    <!-- c3js -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/c3/0.7.11/c3.min.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.12.0/d3.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/c3/0.7.11/c3.min.js"></script>
+    <!-- ./c3js -->
+    <!-- axios -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.19.0/axios.min.js"></script>
+    <!-- ./axios -->
+  </head>
+  <body>
+    <div id="v-app">
+      <!-- nav -->
+      <nav class="navbar" role="navigation" aria-label="main navigation">
+        <div class="navbar-brand">
+          <a href="/" class="navbar-item">[[ title ]]</a>
+        </div>
+        <div class="navbar-end">
+          <a href="/api/v1" class="navbar-item">API</a>
+        </div>
+      </nav>
+      <!-- ./nav -->
+
+      <!-- content -->
+      <section class="section">
+        <div class="container is-fluid">
+          <!-- error-notifs -->
+          <div
+            class="notification is-danger"
+            v-for="err in errors"
+            v-if="errors"
+          >
+            <button class="delete" @click="deleteNotif(err.id)"></button>
+            [[ err ]]
+          </div>
+          <!-- ./error-notifs -->
+
+          <div class="columns">
+            <div class="column is-one-third">
+              <nav class="panel">
+                <div class="panel-heading">
+                  Tracked Processes
+                </div>
+                <p class="control has-icons-left">
+                  <input
+                    class="input is-small"
+                    type="text"
+                    placeholder="search tracked processes"
+                    v-model="proc_search"
+                  />
+                  <span class="icon is-small is-left">
+                    <i class="fas fa-search" aria-hidden="true"></i>
+                  </span>
+                </p>
+                <a
+                  class="panel-block"
+                  v-for="proc in tracked_procs_filtered"
+                  @click="select_proc = proc.name; get_usage()"
+                >
+                  [[ proc.name ]]
+                </a>
+              </nav>
+            </div>
+            <div class="column">
+              <div class="box">
+                <div class="title is-4 is-inline">
+                  Top X values to pull
+                </div>
+                <div class="select is-pulled-right">
+                  <select
+                    name="topX"
+                    id="topX"
+                    v-model="topX"
+                    @change="get_usage"
+                  >
+                    <option value="10">10</option>
+                    <option value="100">100</option>
+                    <option value="1000">1,000</option>
+                    <option value="5000">5,000</option>
+                    <option value="10000">10,000</option>
+                  </select>
+                </div>
+              </div>
+              <div class="box">
+                <div class="title is-4">
+                  Ressource Use: [[ select_proc ]]
+                </div>
+                <div id="usage-chart"></div>
+              </div>
+              <div class="box">
+                <div class="title is-4">
+                  Table
+                </div>
+                <table
+                  id="d-table"
+                  class="table is-bordered is-hoverable is-fullwidth"
+                >
+                  <thead>
+                    <th v-for="el in usage_headers">
+                      [[ el ]]
+                    </th>
+                  </thead>
+                  <tbody>
+                    <tr v-for="rcd in usage">
+                      <td v-for="cell in usage_headers">
+                        <span v-if="cell == 'datetime'"
+                          >[[ rcd[cell].format("YYYY-MM-DD HH:mm:ss") ]]</span
+                        >
+                        <span v-else>[[ rcd[cell] ]]</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- ./content -->
+    </div>
+    <script>
+      new Vue({
+        delimiters: ["[[", "]]"],
+        el: "#v-app",
+        data: {
+          endpoints: {
+            procs: "/api/v1/proc",
+            usage: "/api/v1/usage"
+          },
+          errors: [],
+          title: "PyTop",
+          proc_search: "",
+          tracked_procs: [],
+          select_proc: "",
+          usage: [],
+          topX: 10
+        },
+        computed: {
+          tracked_procs_filtered() {
+            return this.tracked_procs.filter(proc => {
+              return proc.name
+                .toLowerCase()
+                .includes(this.proc_search.toLowerCase());
+            });
+          },
+          usage_headers() {
+            if (this.usage.length > 0) {
+              return Object.keys(this.usage[0]);
+            } else {
+              return [];
+            }
+          }
+        },
+        methods: {
+          get_procs() {
+            axios
+              .get(this.endpoints.procs)
+              .then(resp => {
+                resp.data.forEach(el => {
+                  this.tracked_procs.push(el);
+                });
+              })
+              .catch(err => {
+                this.errors.push(`get_procs: ${err}`);
+                console.error(err);
+              });
+          },
+          deleteNotif(el) {
+            this.errors.pop(el);
+          },
+          get_usage() {
+            let url =
+              this.endpoints.usage +
+              `?name=${this.select_proc}&limit=${parseInt(this.topX)}`;
+            console.info(url);
+            axios
+              .get(url)
+              .then(resp => {
+                let data = [];
+                resp.data.results.forEach(el => {
+                  data.push({
+                    pid: el.pid,
+                    name: el.name,
+                    ram: el.mem.toFixed(2),
+                    cpu: el.cpu.toFixed(2),
+                    datetime: moment(el.created_at)
+                  });
+                });
+                this.usage = data;
+                this.gen_usage_chart();
+              })
+              .catch(err => {
+                this.errors.push(`get_usage: ${err}`);
+                console.error(err);
+              });
+          },
+          gen_usage_chart() {
+            let chart = c3.generate({
+              bindto: "#usage-chart",
+              data: {
+                json: this.usage,
+                keys: {
+                  x: "datetime",
+                  value: ["ram", "cpu"]
+                }
+              },
+              axis: {
+                x: {
+                  type: "timeseries",
+                  tick: {
+                    format: "%Y-%m-%d %H:%M:%S"
+                  }
+                }
+              },
+              types: {
+                ram: "line"
+              }
+            });
+          }
+        },
+        mounted() {
+          this.get_procs();
+        }
+      });
+    </script>
+    <style>
+      ::-webkit-scrollbar {
+        width: 12px;
+        background-color: rgba(31, 45, 59, 0.473);
+      }
+      ::-webkit-scrollbar-thumb {
+        border-radius: 0px;
+        -webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
+        background-color: rgb(23, 34, 44);
+      }
+      ::-webkit-scrollbar-track {
+        -webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
+        border-radius: 0px;
+        background-color: rgba(31, 45, 59, 0.267);
+      }
+    </style>
+  </body>
+</html>

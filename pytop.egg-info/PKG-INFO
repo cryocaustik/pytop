@@ -1,0 +1,11 @@
+Metadata-Version: 1.2
+Name: pytop
+Version: 0.1.0
+Summary: local process resource use recorder
+Home-page: UNKNOWN
+Author: cryocaustik
+Author-email: alex.skobelev@pm.me
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Requires-Python: >=3.7,<4.0
